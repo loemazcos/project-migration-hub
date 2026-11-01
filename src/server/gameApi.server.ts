@@ -193,8 +193,42 @@ async function discoverClue(supabase: Db, deviceId: string, payload: Record<stri
   return { ok: true, created: !error };
 }
 
+async function sha256(text: string) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Name = save slot. A new name is claimed with a 4-digit PIN; the same name + PIN resumes it.
+// Anyone else typing a taken name gets refused, so names stay unique to one player.
+async function claimSlot(supabase: Db, payload: any): Promise<Result> {
+  const name = typeof payload?.name === "string" ? payload.name.trim().normalize("NFC") : "";
+  const pin = typeof payload?.pin === "string" ? payload.pin : "";
+  if (name.length < 1 || name.length > 12 || !/^\d{4}$/.test(pin)) return json({ error: "이름(1~12자)과 숫자 4자리를 넣어 주세요." }, 400);
+  const hourStart = new Date(Math.floor(Date.now() / 3600000) * 3600000).toISOString();
+  const { data: ok } = await supabase.rpc("consume_rate_limit", { p_key: `slot:${name}`, p_window: hourStart, p_limit: 10 });
+  if (ok !== true) return json({ error: "시도가 너무 많아요. 잠시 후 다시 해 주세요." }, 429);
+  const pinHash = await sha256(`${name}:${pin}`);
+  const { data: existing, error } = await supabase.from("save_slots").select("pin_hash, device_id").eq("name", name).maybeSingle();
+  if (error) throw new Error("slot failed");
+  if (existing) {
+    if (existing.pin_hash !== pinHash) return json({ error: "이미 다른 사람이 쓰는 이름이에요. 내 이름이면 비밀번호를 확인해 주세요." }, 403);
+    return json({ deviceId: existing.device_id, resumed: true });
+  }
+  const deviceId = crypto.randomUUID();
+  const { error: insertError } = await supabase.from("save_slots").insert({ name, pin_hash: pinHash, device_id: deviceId });
+  if (insertError) {
+    if (insertError.code === UNIQUE_VIOLATION) return json({ error: "이미 다른 사람이 쓰는 이름이에요." }, 403);
+    throw new Error("slot failed");
+  }
+  return json({ deviceId, resumed: false });
+}
+
 export async function handle(body: any): Promise<Result> {
   try {
+    if (body?.action === "claimSlot") {
+      const supabase: Db = (await import("@/integrations/supabase/client.server")).supabaseAdmin as any;
+      return await claimSlot(supabase, body?.payload);
+    }
     const deviceId = typeof body?.deviceId === "string" ? body.deviceId : "";
     if (!DEVICE_ID_PATTERN.test(deviceId)) {
       return json({ error: "잘못된 요청이에요." }, 400);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Camera, Flashlight } from 'lucide-react';
 import { device } from '@/data/device';
 import NotificationItem from '@/components/phone/NotificationItem';
+import NotificationCenter from '@/components/phone/NotificationCenter';
 import PasscodePad from '@/components/phone/PasscodePad';
 import { useVisibleNotices } from '@/hooks/useVisibleNotices';
 import { formatClock, formatLockDate } from '@/lib/gameTime';
@@ -11,14 +12,8 @@ type Props = { now: Date; onUnlock: () => void };
 export default function LockScreen({ now, onUnlock }: Props) {
   const [padOpen, setPadOpen] = useState(false);
   const [stackOpen, setStackOpen] = useState(false);
-  const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
   const notifications = useVisibleNotices();
   const [top, ...rest] = notifications;
-
-  function finishSwipe(clientY: number) {
-    if (swipeStartY !== null && swipeStartY - clientY > 60) setPadOpen(true);
-    setSwipeStartY(null);
-  }
 
   return (
     <div
@@ -38,14 +33,8 @@ export default function LockScreen({ now, onUnlock }: Props) {
 
       <div className={`mx-4 mt-6 flex flex-col gap-2 ${padOpen ? 'hidden' : ''}`}>
         {top ? (
-          <button type="button" onClick={() => setStackOpen((open) => !open)} className="w-full text-left">
-            {stackOpen ? (
-              <div className="flex flex-col gap-2">
-                {notifications.map((item) => (
-                  <NotificationItem key={item.id} appId={item.appId} title={item.title} body={item.body} time={item.time} />
-                ))}
-              </div>
-            ) : (
+          <button type="button" onClick={() => setStackOpen(true)} className="w-full text-left">
+            {(
               <div className="relative">
                 {rest.length > 0 ? (
                   <span className="absolute inset-x-3 -bottom-1.5 h-full rounded-[20px] bg-[var(--glass)] opacity-60" />
@@ -59,6 +48,8 @@ export default function LockScreen({ now, onUnlock }: Props) {
           </button>
         ) : null}
       </div>
+
+      <NotificationCenter from="bottom" progress={stackOpen ? 1 : 0} dragging={false} now={now} onClose={() => setStackOpen(false)} />
 
       <div className="mt-auto flex flex-col items-center gap-5 pb-[calc(env(safe-area-inset-bottom)+28px)]">
         {padOpen ? (

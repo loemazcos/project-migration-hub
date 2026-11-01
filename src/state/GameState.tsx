@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { loadRun, saveRun } from '@/lib/gameSave';
-import { DEFAULT_RUN, releaseOneNotice, type RunState } from '@/state/runState';
+import { DEFAULT_RUN, releaseOneNotice, settleNotices, type RunState } from '@/state/runState';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -42,7 +42,7 @@ export function GameStateProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback((change: (run: RunState) => RunState) => {
     setRun((previous) => {
-      const next = change(previous);
+      const next = settleNotices(change(previous));
       latest.current = next;
       return next;
     });

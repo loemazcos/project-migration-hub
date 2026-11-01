@@ -164,6 +164,27 @@ export type Database = {
         }
         Relationships: []
       }
+      save_slots: {
+        Row: {
+          created_at: string
+          device_id: string
+          name: string
+          pin_hash: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          name: string
+          pin_hash: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          name?: string
+          pin_hash?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

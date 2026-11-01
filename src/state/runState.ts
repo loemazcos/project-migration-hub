@@ -98,6 +98,12 @@ export type RunState = {
   lowPower: boolean;
   appSeen: Record<string, number>;
   playerName: string | null;
+  /** Notice ids the player already saw (read in-chat or opened); never re-notified. */
+  seenNotices: string[];
+  /** Chat thread/room currently on screen; its incoming messages raise no notice. */
+  viewing: string | null;
+  /** Small per-app saved values (alarm label, unlocked album, map pins). */
+  appFlags: Record<string, string>;
 };
 
 export const DEFAULT_RUN: RunState = {
@@ -127,6 +133,9 @@ export const DEFAULT_RUN: RunState = {
   nightCutPending: false,
   nightCutPlayed: false,
   notices: [],
+  seenNotices: [],
+  viewing: null,
+  appFlags: {},
   notificationsCleared: false,
   codex: [],
   social: DEFAULT_SOCIAL,
@@ -154,7 +163,7 @@ export function parseRun(value: unknown): RunState | null {
     return null;
   }
   if (typeof candidate.battery !== 'number' || !Array.isArray(candidate.clues)) return null;
-  return { ...DEFAULT_RUN, ...candidate };
+  return { ...DEFAULT_RUN, ...candidate, viewing: null };
 }
 
 function makeNotice(run: RunState, key: string, at: number, notice: { appId: string; title: string; body: string }): Notice {
@@ -353,28 +362,69 @@ export function markNightCutPlayed(run: RunState): RunState {
 }
 
 export function clearNotifications(run: RunState): RunState {
-  return { ...run, notices: [], notificationsCleared: true };
+  return { ...run, seenNotices: [...run.seenNotices, ...run.notices.map((n) => n.id)], notices: [], notificationsCleared: true };
 }
 
 export function openDmThread(run: RunState, threadId: string, hasUnread: boolean): RunState {
   const opened = openDm(run);
   const dmReadAt =
     hasUnread && opened.dmReadAt[threadId] === undefined ? { ...opened.dmReadAt, [threadId]: opened.t } : opened.dmReadAt;
-  return { ...opened, dmReadAt, notices: opened.notices.filter((notice) => notice.threadId !== threadId) };
+  return { ...viewThread(opened, threadId), dmReadAt };
+}
+
+/** Marks a chat as on-screen: its notices are cleared and remembered as seen. */
+export function viewThread(run: RunState, threadId: string): RunState {
+  const gone = run.notices.filter((notice) => notice.threadId === threadId).map((notice) => notice.id);
+  const seen = Array.from(new Set([...run.seenNotices, ...gone, `open:${threadId}`]));
+  return { ...run, viewing: threadId, seenNotices: seen, notices: run.notices.filter((notice) => notice.threadId !== threadId) };
+}
+
+export function markNoticesSeen(run: RunState, ids: string[]): RunState {
+  const add = ids.filter((id) => !run.seenNotices.includes(id));
+  return add.length ? { ...run, seenNotices: [...run.seenNotices, ...add] } : run;
+}
+
+export function setAppFlag(run: RunState, key: string, value: string): RunState {
+  return run.appFlags[key] === value ? run : { ...run, appFlags: { ...run.appFlags, [key]: value } };
+}
+
+export function leaveThread(run: RunState): RunState {
+  return run.viewing === null ? run : { ...run, viewing: null };
+}
+
+/** Drops notices already seen or belonging to the chat on screen. Applied after every state change. */
+export function settleNotices(run: RunState): RunState {
+  const seen = new Set(run.seenNotices);
+  let changed = false;
+  const fresh: string[] = [];
+  const notices = run.notices.filter((notice) => {
+    if (seen.has(notice.id)) {
+      changed = true;
+      return false;
+    }
+    if (run.viewing && notice.threadId === run.viewing) {
+      changed = true;
+      fresh.push(notice.id);
+      return false;
+    }
+    return true;
+  });
+  if (!changed) return run;
+  return { ...run, notices, seenNotices: fresh.length ? [...run.seenNotices, ...fresh] : run.seenNotices };
 }
 
 export function arriveDmNotice(
   run: RunState,
   notice: { id: string; threadId: string; title: string; body: string; at: number },
 ): RunState {
-  if (run.notices.some((item) => item.id === notice.id)) return run;
+  if (run.notices.some((item) => item.id === notice.id) || run.seenNotices.includes(notice.id)) return run;
   return {
     ...run,
     notices: [
       ...run.notices,
       {
         id: notice.id,
-        appId: 'instagram',
+        appId: 'insta',
         title: notice.title,
         body: notice.body,
         time: clockOf(notice.at),
