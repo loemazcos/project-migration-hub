@@ -242,8 +242,48 @@ const GEMINI_SCHEMA = {
   required: ["messages", "effects", "reveal", "read_now", "mood"],
 };
 
-// Character replies come from Google Gemini (user's own key), validated by parseReply.
+// Character replies: user's own Gemini key when set, otherwise the built-in AI gateway (Gemini).
 async function requestClaudeReply(history: Turn[], system: string): Promise<unknown | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const out = await (process.env["GEMINI_API_KEY"] ? requestGemini(history, system) : requestGateway(history, system)).catch(
+      (e) => {
+        console.error("ai error", e);
+        return null;
+      },
+    );
+    if (out) return out;
+  }
+  return null;
+}
+
+const SYSTEM_SUFFIX = `\n\n${REPLY_TOOL.description}\ndelay_min 0-180(대화 중에는 0-2), unsend_after_min 1-30 또는 null, typing_cycles 0-3, text 120자 이내.\n반드시 바로 직전 내 메시지에 자연스럽게 이어지는 답을 한다. 대화 흐름과 상관없는 말, 앞에서 한 말 반복은 금지.`;
+
+async function requestGateway(history: Turn[], system: string): Promise<unknown | null> {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) return null;
+  const messages = toAnthropicMessages(history);
+  if (!messages.length) return null;
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{ role: "system", content: system + SYSTEM_SUFFIX }, ...messages],
+      tools: [{ type: "function", function: { name: "reply", description: REPLY_TOOL.description, parameters: REPLY_TOOL.input_schema } }],
+      tool_choice: { type: "function", function: { name: "reply" } },
+    }),
+  });
+  if (!res.ok) {
+    console.error("gateway error", res.status, (await res.text()).slice(0, 300));
+    return null;
+  }
+  const data = await res.json();
+  const args = data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+  if (!args) return null;
+  return typeof args === "string" ? JSON.parse(args) : args;
+}
+
+async function requestGemini(history: Turn[], system: string): Promise<unknown | null> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) return null;
   const model = process.env["GEMINI_MODEL"] ?? "gemini-3.5-flash";
@@ -258,7 +298,7 @@ async function requestClaudeReply(history: Turn[], system: string): Promise<unkn
       method: "POST",
       headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: `${system}\n\n${REPLY_TOOL.description}\ndelay_min 0-180, unsend_after_min 1-30 또는 null, typing_cycles 0-3, text 120자 이내.` }] },
+        systemInstruction: { parts: [{ text: system + SYSTEM_SUFFIX }] },
         contents,
         generationConfig: {
           maxOutputTokens: 800,
