@@ -10,7 +10,7 @@ import { useGameState } from '@/state/GameState';
 import { openConsult, type ConsultRoom } from '@/state/consults';
 import { chooseConsult } from '@/state/kakaoActions';
 import { kakaoAt } from '@/state/kakaoEvents';
-import { applyDmEffects, arriveDmNotice, openDmThread, openSanghyukRoom, sendDm } from '@/state/runState';
+import { applyDmEffects, arriveDmNotice, leaveThread, markNoticesSeen, openDmThread, openSanghyukRoom, sendDm } from '@/state/runState';
 import { dmThreads as threadData, personalHistory } from '@/data/instagram';
 
 const dmThreads = threadData as DmThread[];
@@ -100,6 +100,8 @@ export default function InstagramDm({ initialThreadId }: Props) {
     setActiveId(thread.id);
     void store.openThread(thread.id);
   }
+
+  useEffect(() => () => update(leaveThread), [update]);
 
   useEffect(() => {
     const thread = dmThreads.find((item) => item.id === initialThreadId);
