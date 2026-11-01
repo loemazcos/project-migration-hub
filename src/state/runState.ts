@@ -102,6 +102,8 @@ export type RunState = {
   seenNotices: string[];
   /** Chat thread/room currently on screen; its incoming messages raise no notice. */
   viewing: string | null;
+  /** Small per-app saved values (alarm label, unlocked album, map pins). */
+  appFlags: Record<string, string>;
 };
 
 export const DEFAULT_RUN: RunState = {
@@ -133,6 +135,7 @@ export const DEFAULT_RUN: RunState = {
   notices: [],
   seenNotices: [],
   viewing: null,
+  appFlags: {},
   notificationsCleared: false,
   codex: [],
   social: DEFAULT_SOCIAL,
@@ -379,6 +382,10 @@ export function viewThread(run: RunState, threadId: string): RunState {
 export function markNoticesSeen(run: RunState, ids: string[]): RunState {
   const add = ids.filter((id) => !run.seenNotices.includes(id));
   return add.length ? { ...run, seenNotices: [...run.seenNotices, ...add] } : run;
+}
+
+export function setAppFlag(run: RunState, key: string, value: string): RunState {
+  return run.appFlags[key] === value ? run : { ...run, appFlags: { ...run.appFlags, [key]: value } };
 }
 
 export function leaveThread(run: RunState): RunState {
