@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Lock, MapPin, Phone as PhoneIcon, PhoneIncoming, PhoneMissed, PhoneOutgoing, Play, Search, Trash2 } from 'lucide-react';
+import { Lock, MapPin, Phone as PhoneIcon, PhoneIncoming, PhoneMissed, PhoneOutgoing, Play, Search } from 'lucide-react';
 import AppShell, { Group, Row, Tabs } from '@/components/apps/simple/AppShell';
 import {
   alarms,
@@ -269,7 +269,7 @@ export function PhotosApp() {
               className="h-12 w-40 rounded-[12px] bg-[var(--card)] text-center text-[22px] tracking-[0.4em] outline-none"
             />
             {code.length === 4 && code !== HIDDEN_ALBUM_CODE ? <p className="text-[13px] text-[var(--danger,#e5484d)]">비밀번호가 달라요</p> : null}
-            <p className="px-6 text-center text-[12px] text-[var(--fg-2)]">힌트: 선배가 처음 탁구부에 들어온 날</p>
+            <p className="px-6 text-center text-[12px] text-[var(--fg-2)]">힌트: 5월, 그날</p>
           </div>
         )}
       </AppShell>
@@ -528,4 +528,3 @@ export const SIMPLE_APPS: Record<string, () => ReactNode> = {
   calc: CalcApp,
 };
 
-export { Trash2 };
