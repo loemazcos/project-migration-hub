@@ -12,14 +12,8 @@ type Props = { now: Date; onUnlock: () => void };
 export default function LockScreen({ now, onUnlock }: Props) {
   const [padOpen, setPadOpen] = useState(false);
   const [stackOpen, setStackOpen] = useState(false);
-  const [swipeStartY, setSwipeStartY] = useState<number | null>(null);
   const notifications = useVisibleNotices();
   const [top, ...rest] = notifications;
-
-  function finishSwipe(clientY: number) {
-    if (swipeStartY !== null && swipeStartY - clientY > 60) setPadOpen(true);
-    setSwipeStartY(null);
-  }
 
   return (
     <div
