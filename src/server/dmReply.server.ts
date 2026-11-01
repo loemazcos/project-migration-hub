@@ -445,6 +445,8 @@ export async function handle(body: any): Promise<Result> {
     // No canned out-of-context lines mid-conversation: if the AI fails, ask the player to resend.
     if (!parsed) return json({ error: "답장이 오지 않았어요. 잠시 후 다시 보내 주세요." }, 503);
     void backupReply;
+    // Friends answer right away mid-chat; only Sanghyuk keeps his deliberate delays.
+    if (threadId !== "sanghyuk") parsed.messages = parsed.messages.map((m, i) => ({ ...m, delay_min: i === 0 ? 0 : Math.min(m.delay_min, 1) }));
     const reply: Reply & { fallback: boolean } = { ...parsed, fallback: false };
 
     await insertThemMessages(supabase, deviceId, threadId, run.t, reply.messages);
