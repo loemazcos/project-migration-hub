@@ -442,9 +442,10 @@ export async function handle(body: any): Promise<Result> {
     const toolInput = await requestClaudeReply(turns, system).catch(() => null);
     const parsed = toolInput ? parseReply(toolInput, threadId, run) : null;
 
-    const reply: Reply & { fallback: boolean } = parsed
-      ? { ...parsed, fallback: false }
-      : { ...backupReply(threadId), fallback: true };
+    // No canned out-of-context lines mid-conversation: if the AI fails, ask the player to resend.
+    if (!parsed) return json({ error: "답장이 오지 않았어요. 잠시 후 다시 보내 주세요." }, 503);
+    void backupReply;
+    const reply: Reply & { fallback: boolean } = { ...parsed, fallback: false };
 
     await insertThemMessages(supabase, deviceId, threadId, run.t, reply.messages);
     if (reply.read_now) await markMyMessagesRead(supabase, deviceId, threadId, run.t);
