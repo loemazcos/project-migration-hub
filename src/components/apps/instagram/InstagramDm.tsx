@@ -65,12 +65,15 @@ export default function InstagramDm({ initialThreadId }: Props) {
   }, [run.morning.erasedThrice, run.morning.dndNight, refresh, update]);
 
   useEffect(() => {
-    const missing = store.rows.filter(
+    const fresh = store.rows.filter(
       (row) =>
         row.sender === 'them' &&
-        row.thread_id !== activeId &&
+        !run.seenNotices.includes(`dm-${row.id}`) &&
         !run.notices.some((notice) => notice.id === `dm-${row.id}`),
     );
+    const viewed = fresh.filter((row) => row.thread_id === activeId).map((row) => `dm-${row.id}`);
+    const missing = fresh.filter((row) => row.thread_id !== activeId);
+    if (viewed.length > 0) update((current) => markNoticesSeen(current, viewed));
     if (missing.length === 0) return;
     update((current) =>
       missing.reduce(
@@ -85,7 +88,7 @@ export default function InstagramDm({ initialThreadId }: Props) {
         current,
       ),
     );
-  }, [store.rows, activeId, run.notices, update]);
+  }, [store.rows, activeId, run.notices, run.seenNotices, update]);
 
   function openThread(thread: DmThread) {
     const threadRows = store.rowsFor(thread.id);
@@ -105,7 +108,10 @@ export default function InstagramDm({ initialThreadId }: Props) {
   }, []);
 
   if (active?.id === 'sanghyuk') {
-    return <SanghyukChat thread={active} onBack={() => setActiveId(null)} />;
+    return <SanghyukChat thread={active} onBack={() => {
+          setActiveId(null);
+          update(leaveThread);
+        }} />;
   }
 
   if (active) {
@@ -119,7 +125,10 @@ export default function InstagramDm({ initialThreadId }: Props) {
         notice={store.notice?.threadId === active.id ? store.notice.text : null}
         consultOpen={consultOpen && CONSULT_ROOMS.includes(active.id)}
         onConsult={() => update((current) => chooseConsult(current, active.id as ConsultRoom))}
-        onBack={() => setActiveId(null)}
+        onBack={() => {
+          setActiveId(null);
+          update(leaveThread);
+        }}
         onSend={(text) =>
           void store.send(active, text, {
             onSent: () => update((current) => sendDm(current, active.id)),

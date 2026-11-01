@@ -376,6 +376,11 @@ export function viewThread(run: RunState, threadId: string): RunState {
   return { ...run, viewing: threadId, seenNotices: seen, notices: run.notices.filter((notice) => notice.threadId !== threadId) };
 }
 
+export function markNoticesSeen(run: RunState, ids: string[]): RunState {
+  const add = ids.filter((id) => !run.seenNotices.includes(id));
+  return add.length ? { ...run, seenNotices: [...run.seenNotices, ...add] } : run;
+}
+
 export function leaveThread(run: RunState): RunState {
   return run.viewing === null ? run : { ...run, viewing: null };
 }
