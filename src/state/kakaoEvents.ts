@@ -59,7 +59,7 @@ export function addKakaoMessage(run: RunState, message: NewKakaoMessage, at: num
             time,
             arriveAt: at,
             queued: run.dnd,
-            threadId: personal ? message.room : undefined,
+            threadId: message.room,
           },
         ];
   return { ...run, kakaoAdded: [...run.kakaoAdded, entry], notices: [...run.notices, ...notice] };
