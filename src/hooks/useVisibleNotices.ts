@@ -1,4 +1,5 @@
 import { device } from '@/data/device';
+import { dmThreads } from '@/data/instagram';
 import { remitBody } from '@/lib/remit';
 import { useGameState } from '@/state/GameState';
 
@@ -11,7 +12,13 @@ export function useVisibleNotices(): ListNotice[] {
     .map((notice) => ({ id: notice.id, appId: notice.appId, title: notice.title, body: notice.body, time: notice.time }))
     .reverse();
   if (run.notificationsCleared) return dynamic;
-  const fixed = device.lockNotifications.map((item) => ({
+  const openedName = (title: string) => {
+    const thread = dmThreads.find((item) => item.name === title);
+    return thread ? run.seenNotices.includes(`open:${thread.id}`) : false;
+  };
+  const fixed = device.lockNotifications
+    .filter((item) => !run.seenNotices.includes(item.id) && !openedName(item.title))
+    .map((item) => ({
     id: item.id,
     appId: item.app,
     title: item.title,
